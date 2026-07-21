@@ -303,7 +303,7 @@ function visible(ev){
   else if (!showRe) return false;
   if (personFilter && ev.who !== personFilter) return false;
   if (searchQ){
-    const hay = [ev.who, ev.loc, ev.code, ev.meta].join(' ').toLowerCase();
+    const hay = [ev.who, ev.loc, ev.meta].join(' ').toLowerCase();
     if (!hay.includes(searchQ)) return false;
   }
   return true;
@@ -427,7 +427,7 @@ function tlRow(ev, isSpill, nowPct){
     widthPct = (Math.min(endMin, 1440) - ev.startMin) / 1440 * 100;
     spillR = endMin > 1440;
   }
-  const sub = [ev.loc, ev.code, ev.meta].filter(Boolean).join(' · ');
+  const sub = [ev.loc, ev.meta].filter(Boolean).join(' · ');
   return '<div class="tl-row">'
     + '<div class="tl-name"><div class="n">'+esc(label(ev))+(isSpill?' <span style="color:var(--muted)">(cont.)</span>':'')+'</div>'
     + (sub ? '<div class="s">'+esc(sub)+'</div>' : '') + '</div>'
@@ -448,7 +448,6 @@ function evRow(ev){
     + '<span class="badge '+cls(ev)+'">'+(ev.src==='student'?'Student':'Resident')+'</span>'
     + '<span class="who">'+esc(label(ev))+'</span>'
     + (ev.loc ? '<span class="meta">'+esc(ev.loc)+'</span>' : '')
-    + (ev.code ? '<span class="meta">'+esc(ev.code)+'</span>' : '')
     + (ev.meta ? '<span class="meta">'+esc(ev.meta)+'</span>' : '')
     + '</div>';
 }
