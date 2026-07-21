@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PEM Global Calendar</title>
+```js
+const CONFIG = {
+  proxyUrl: 'https://pem-cal.yourname.workers.dev',
+  token: ''
+};
+```
+<style>
+  :root {
+    color-scheme: light;
+    --student: #0d9488;
+    --student-bg: #ccfbf1;
+    --resident: #7c3aed;
+    --resident-bg: #ede9fe;
+    --open: #d97706;
+    --open-bg: #fef3c7;
+    --ink: #1e293b;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --bg: #f8fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; }
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  header { padding: 12px 16px 8px; background: #fff; border-bottom: 1px solid var(--line); }
+  .title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 17px; font-weight: 700; }
+  .status { font-size: 12px; color: var(--muted); }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .nav { display: flex; align-items: center; gap: 4px; }
+  button, select, input[type=text] {
+    font: inherit; font-size: 13px; border: 1px solid var(--line); background: #fff;
+    border-radius: 8px; padding: 5px 10px; cursor: pointer; color: var(--ink);
+  }
+  button:hover { background: #f1f5f9; }
+  .month-label { font-weight: 700; font-size: 15px; min-width: 170px; text-align: center; }
+  .toggle { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; user-select: none; }
+  .toggle.off { opacity: 0.4; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .dot.st { background: var(--student); }
+  .dot.re { background: var(--resident); }
+  .dot.op { background: var(--open); }
+  select { max-width: 180px; }
+  input[type=text] { width: 150px; cursor: text; }
+  .viewswitch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .viewswitch button { border: none; border-radius: 0; }
+  .viewswitch button.active { background: var(--ink); color: #fff; }
+
+  .main { flex: 1; display: flex; overflow: hidden; }
+  .cal-wrap { flex: 1; overflow: auto; padding: 12px 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; padding: 4px 0; }
+  .cell { background: #fff; border: 1px solid var(--line); border-radius: 10px; min-height: 96px; padding: 5px; cursor: pointer; transition: border-color .1s; overflow: hidden; }
+  .cell:hover { border-color: #94a3b8; }
+  .cell.other { background: transparent; border-style: dashed; opacity: 0.55; }
+  .cell.today { border: 2px solid var(--ink); }
+  .cell.selected { border: 2px solid var(--resident); }
+  .daynum { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+  .chip { font-size: 10.5px; line-height: 1.3; border-radius: 5px; padding: 1px 5px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip.st { background: var(--student-bg); color: #115e59; }
+  .chip.re { background: var(--resident-bg); color: #5b21b6; }
+  .chip.op { background: var(--open-bg); color: #92400e; }
+  .more { font-size: 10px; color: var(--muted); font-weight: 600; }
+
+  .list-day { margin-bottom: 14px; }
+  .list-day h3 { font-size: 13px; margin-bottom: 6px; color: var(--muted); position: sticky; top: 0; background: var(--bg); padding: 4px 0; }
+  .ev { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .ev.st { border-left-color: var(--student); }
+  .ev.re { border-left-color: var(--resident); }
+  .ev.op { border-left-color: var(--open); }
+  .ev .time { font-weight: 700; font-size: 12.5px; white-space: nowrap; min-width: 118px; }
+  .ev .who { font-weight: 600; }
+  .ev .meta { color: var(--muted); font-size: 12px; }
+  .badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; text-transform: uppercase; letter-spacing: .03em; }
+  .badge.st { background: var(--student-bg); color: #115e59; }
+  .badge.re { background: var(--resident-bg); color: #5b21b6; }
+  .badge.op { background: var(--open-bg); color: #92400e; }
+
+  .tl { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+  .tl-inner { min-width: 900px; }
+  .tl-head { display: flex; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #fff; z-index: 2; }
+  .tl-label-col { width: 190px; flex: none; padding: 6px 10px; font-size: 11px; font-weight: 700; color: var(--muted); border-right: 1px solid var(--line); }
+  .tl-hours { flex: 1; display: flex; position: relative; }
+  .tl-hour { flex: 1; font-size: 10px; color: var(--muted); border-left: 1px solid var(--line); padding: 6px 0 6px 3px; white-space: nowrap; overflow: hidden; }
+  .tl-section { padding: 6px 10px 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--bg); }
+  .tl-row { display: flex; border-bottom: 1px solid #f1f5f9; }
+  .tl-row:hover { background: #f8fafc; }
+  .tl-name { width: 190px; flex: none; padding: 7px 10px; font-size: 12px; border-right: 1px solid var(--line); overflow: hidden; }
+  .tl-name .n { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tl-name .s { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tl-track { flex: 1; position: relative; min-height: 38px; background:
+    repeating-linear-gradient(to right, transparent, transparent calc(100%/24 - 1px), var(--line) calc(100%/24 - 1px), var(--line) calc(100%/24)); }
+  .bar { position: absolute; top: 6px; height: 26px; border-radius: 6px; font-size: 10.5px; font-weight: 600; line-height: 26px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 14px; }
+  .bar.st { background: var(--student-bg); color: #115e59; border: 1px solid #5eead4; }
+  .bar.re { background: var(--resident-bg); color: #5b21b6; border: 1px solid #c4b5fd; }
+  .bar.op { background: var(--open-bg); color: #92400e; border: 1px solid #fcd34d; }
+  .bar.spillR { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 2px dashed currentColor; }
+  .bar.spillL { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 2px dashed currentColor; }
+  .tl-empty { padding: 30px; text-align: center; color: var(--muted); }
+  .nowline { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; z-index: 1; }
+
+  .panel { width: 320px; border-left: 1px solid var(--line); background: #fff; overflow: auto; padding: 14px; display: none; }
+  .panel.show { display: block; }
+  .panel h2 { font-size: 15px; margin-bottom: 4px; }
+  .panel .close { float: right; font-size: 12px; }
+  .panel .tolink { display: inline-block; font-size: 12px; color: var(--resident); cursor: pointer; margin-bottom: 10px; font-weight: 600; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 10px; }
+  .loading { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .spin { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--resident); border-radius: 50%; margin: 0 auto 12px; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; margin: 12px 16px; }
+  .counts { font-size: 12px; color: var(--muted); margin-left: auto; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title-row">
+      <h1>PEM Global Calendar</h1>
+      <span class="status" id="status">Loading…</span>
+      <span class="counts" id="counts"></span>
+    </div>
+    <div class="controls">
+      <div class="nav">
+        <button id="prev">‹</button>
+        <span class="month-label" id="mlabel"></span>
+        <button id="next">›</button>
+        <button id="today">Today</button>
+      </div>
+      <div class="viewswitch">
+        <button id="vMonth">Month</button>
+        <button id="vTimeline">Timeline</button>
+        <button id="vList">List</button>
+      </div>
+      <span class="toggle" id="tStud"><span class="dot st"></span>Students</span>
+      <span class="toggle" id="tRes"><span class="dot re"></span>Residents</span>
+      <span class="toggle" id="tOpen"><span class="dot op"></span>Open shifts</span>
+      <select id="person"><option value="">All people</option></select>
+      <input type="text" id="search" placeholder="Search…">
+    </div>
+  </header>
+  <div class="main">
+    <div class="cal-wrap" id="calwrap"><div class="loading"><div class="spin"></div>Fetching schedules…</div></div>
+    <div class="panel" id="panel"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — pick ONE mode.
+
+   RECOMMENDED: deploy the included worker.js to Cloudflare
+   Workers (free) and put its URL here. The Airtable token stays
+   secret on the worker and only whitelisted fields are served.
+
+   NOT RECOMMENDED: set token directly. Anyone who opens this
+   page's source can then read EVERYTHING the token can access
+   in both bases (including contact emails/phones).
+   ============================================================ */
+const CONFIG = {
+  proxyUrl: '',                      // e.g. 'https://pem-cal.YOURNAME.workers.dev'
+  token: ''                          // direct-mode Airtable personal access token (leave empty if using proxy)
+};
+
+const STUDENT_BASE = 'appYQsH1SIRqbDqxE';
+const STUDENT_SHIFTS = 'tbl0KexkVp6U8CzDd';   // Daily Shifts
+const STUDENT_CONTACTS = 'tblzU1hCrmlh6sujs'; // Contacts (First Name only)
+const RES_BASE = 'appqa7fXRhmUOYVL5';
+const RES_SHIFTS = 'tblCs1YgwyDpr8bQx';       // Shifts
+const RES_PEOPLE = 'tblXqnjTCkXaCBRMu';       // Residents/Fellows (Name only)
+
+// Field names (Airtable REST returns fields by name)
+const SF = { start:'Date', end:'End Date & Time', student:'Name of Student', loc:'Location (from Individual Shifts (Template))', school:'School (from Contacts)', year:'Year (from Contacts)' };
+const RF = { start:'Shift Start Time', end:'Shift End Time', name:'Shift Name', resident:'Resident on shift', code:'Shift Codes', prog:'Residency/Fellowship (from Resident on shift)' };
+
+// Timezone handling: the STUDENT base stores wall-clock times as UTC (read as-is);
+// the RESIDENT base stores true UTC (convert to US Central).
+const TZ_STUDENT = 'UTC';
+const TZ_RESIDENT = 'America/Chicago';
+
+let events = [];
+let cur = new Date(); cur.setDate(1);
+let curDay = todayKeyLocal();
+let view = localStorage.getItem('pemcal.view') || 'month';
+if (!['month','timeline','list'].includes(view)) view = 'month';
+let showSt = localStorage.getItem('pemcal.st') !== '0';
+let showRe = localStorage.getItem('pemcal.re') !== '0';
+let showOp = localStorage.getItem('pemcal.op') !== '0';
+let personFilter = '', searchQ = '', selectedDay = null;
+
+function todayKeyLocal(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function atFetch(baseId, tableId, fields){
+  const out = [];
+  let offset = null, guard = 0;
+  while (guard++ < 300){
+    const p = new URLSearchParams();
+    for (const f of fields) p.append('fields[]', f);
+    p.set('pageSize', '100');
+    if (offset) p.set('offset', offset);
+    let url, headers = {};
+    if (CONFIG.proxyUrl){
+      url = CONFIG.proxyUrl.replace(/\/+$/,'') + '/' + baseId + '/' + tableId + '?' + p;
+    } else if (CONFIG.token){
+      url = 'https://api.airtable.com/v0/' + baseId + '/' + tableId + '?' + p;
+      headers.Authorization = 'Bearer ' + CONFIG.token;
+    } else {
+      throw new Error('Not configured: set CONFIG.proxyUrl (recommended) or CONFIG.token in index.html');
+    }
+    const r = await fetch(url, { headers });
+    if (r.status === 429){ await sleep(31000); continue; }
+    if (!r.ok) throw new Error('Airtable ' + r.status + ': ' + (await r.text()).slice(0, 200));
+    const data = await r.json();
+    out.push(...(data.records || []));
+    offset = data.offset || null;
+    if (!offset) break;
+  }
+  return out;
+}
+
+// --- per-timezone date helpers ---
+const partsFmt = {};
+function tparts(d, tz){
+  partsFmt[tz] ??= new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false });
+  const o = {};
+  for (const p of partsFmt[tz].formatToParts(d)) o[p.type] = p.value;
+  return o;
+}
+const timeFmt = {};
+function tstr(d, tz){
+  timeFmt[tz] ??= new Intl.DateTimeFormat('en-US', { timeZone: tz, hour:'numeric', minute:'2-digit' });
+  return timeFmt[tz].format(d).replace(':00','');
+}
+function longDay(key){
+  const [y,m,d] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'}).format(new Date(y, m-1, d, 12));
+}
+function shortDay(key){
+  const [y,m,d] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US',{weekday:'short', month:'short', day:'numeric'}).format(new Date(y, m-1, d, 12));
+}
+function shiftKey(key, days){
+  const [y,m,d] = key.split('-').map(Number);
+  const dt = new Date(y, m-1, d + days, 12);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function first(v){ return Array.isArray(v) ? (v[0] ?? '') : (v ?? ''); }
+function arr(v){ return Array.isArray(v) ? v : v ? [v] : []; }
+
+function makeEvent(base){
+  const tz = base.src === 'student' ? TZ_STUDENT : TZ_RESIDENT;
+  const p = tparts(base.start, tz);
+  base.key = p.year+'-'+p.month+'-'+p.day;
+  base.startMin = (Number(p.hour) % 24) * 60 + Number(p.minute);
+  base.durMin = base.end ? Math.max(15, Math.round((base.end - base.start) / 60000)) : 60;
+  base.timeLabel = tstr(base.start, tz) + (base.end ? '–' + tstr(base.end, tz) : '');
+  return base;
+}
+
+function buildEvents(stRecs, reRecs, contactNames, residentNames){
+  const evs = [];
+  for (const r of stRecs){
+    const f = r.fields || {};
+    if (!f[SF.start]) continue;
+    const sid = first(f[SF.student]);
+    const who = sid ? (contactNames[sid] || 'Student') : null;
+    evs.push(makeEvent({
+      id: r.id, src: 'student',
+      start: new Date(f[SF.start]), end: f[SF.end] ? new Date(f[SF.end]) : null,
+      who, open: !who,
+      loc: String(first(f[SF.loc]) || ''),
+      meta: [first(f[SF.school]), first(f[SF.year])].filter(Boolean).join(' · ')
+    }));
+  }
+  for (const r of reRecs){
+    const f = r.fields || {};
+    if (!f[RF.start]) continue;
+    const rid = first(f[RF.resident]);
+    const who = rid ? (residentNames[rid] || 'Resident') : null;
+    evs.push(makeEvent({
+      id: r.id, src: 'resident',
+      start: new Date(f[RF.start]), end: f[RF.end] ? new Date(f[RF.end]) : null,
+      who, open: !who,
+      loc: f[RF.name] || '',
+      code: f[RF.code] || '',
+      meta: arr(f[RF.prog]).join(' · ')
+    }));
+  }
+  evs.sort((a,b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.startMin - b.startMin));
+  return evs;
+}
+
+function visible(ev){
+  if (ev.open){ if (!showOp) return false; }
+  else if (ev.src === 'student'){ if (!showSt) return false; }
+  else if (!showRe) return false;
+  if (personFilter && ev.who !== personFilter) return false;
+  if (searchQ){
+    const hay = [ev.who, ev.loc, ev.code, ev.meta].join(' ').toLowerCase();
+    if (!hay.includes(searchQ)) return false;
+  }
+  return true;
+}
+function eventsByDay(){
+  const map = {};
+  for (const ev of events){
+    if (!visible(ev)) continue;
+    (map[ev.key] ??= []).push(ev);
+  }
+  return map;
+}
+function cls(ev){ return ev.open ? 'op' : (ev.src === 'student' ? 'st' : 're'); }
+function label(ev){ return ev.open ? (ev.src === 'student' ? 'Open student slot' : 'Uncovered') : ev.who; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render(){
+  const wrap = document.getElementById('calwrap');
+  const byDay = eventsByDay();
+  const shown = Object.values(byDay).reduce((n,a)=>n+a.length,0);
+  document.getElementById('counts').textContent = shown + ' shifts shown · ' + events.length + ' total';
+  const ml = document.getElementById('mlabel');
+  if (view === 'timeline') ml.textContent = shortDay(curDay);
+  else ml.textContent = new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric'}).format(cur);
+  if (view === 'month') renderMonth(wrap, byDay);
+  else if (view === 'timeline') renderTimeline(wrap, byDay);
+  else renderList(wrap, byDay);
+  renderPanel(byDay);
+}
+
+function renderMonth(wrap, byDay){
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const firstD = new Date(y, m, 1);
+  const start = new Date(firstD); start.setDate(1 - firstD.getDay());
+  const todayK = todayKeyLocal();
+  let html = '<div class="grid">';
+  for (const d of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']) html += '<div class="dow">'+d+'</div>';
+  for (let i = 0; i < 42; i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const evs = byDay[k] || [];
+    const classes = ['cell'];
+    if (d.getMonth() !== m) classes.push('other');
+    if (k === todayK) classes.push('today');
+    if (k === selectedDay) classes.push('selected');
+    html += '<div class="'+classes.join(' ')+'" data-day="'+k+'"><div class="daynum">'+d.getDate()+'</div>';
+    const max = 4;
+    for (const ev of evs.slice(0, max)){
+      html += '<div class="chip '+cls(ev)+'" title="'+esc(ev.timeLabel+' '+label(ev)+' '+(ev.loc||''))+'">'+esc(tShort(ev)+' '+label(ev))+'</div>';
+    }
+    if (evs.length > max) html += '<div class="more">+'+(evs.length-max)+' more</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.cell').forEach(c => c.addEventListener('click', () => {
+    selectedDay = (selectedDay === c.dataset.day) ? null : c.dataset.day;
+    render();
+  }));
+}
+function tShort(ev){
+  const h = Math.floor(ev.startMin/60), mi = ev.startMin%60;
+  const ap = h < 12 ? 'a' : 'p';
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return hh + (mi ? ':'+String(mi).padStart(2,'0') : '') + ap;
+}
+
+function renderList(wrap, byDay){
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const keys = Object.keys(byDay).filter(k => {
+    const [ky,km] = k.split('-').map(Number);
+    return ky === y && km === m + 1;
+  }).sort();
+  if (!keys.length){ wrap.innerHTML = '<div class="empty">No shifts match in this month.</div>'; return; }
+  let html = '';
+  for (const k of keys){
+    html += '<div class="list-day"><h3>'+longDay(k)+'</h3>';
+    for (const ev of byDay[k]) html += evRow(ev);
+    html += '</div>';
+  }
+  wrap.innerHTML = html;
+}
+
+function renderTimeline(wrap, byDay){
+  const todays = byDay[curDay] || [];
+  const spill = (byDay[shiftKey(curDay,-1)] || []).filter(ev => ev.startMin + ev.durMin > 1440);
+  let html = '<div class="tl"><div class="tl-inner">';
+  html += '<div class="tl-head"><div class="tl-label-col">Shift</div><div class="tl-hours">';
+  for (let h = 0; h < 24; h++){
+    const lab = h === 0 ? '12a' : h < 12 ? h+'a' : h === 12 ? '12p' : (h-12)+'p';
+    html += '<div class="tl-hour">'+lab+'</div>';
+  }
+  html += '</div></div>';
+
+  const nowPct = nowPercent();
+  const sections = [
+    { name: 'Residents', evs: todays.filter(e=>e.src==='resident'), sp: spill.filter(e=>e.src==='resident') },
+    { name: 'Students',  evs: todays.filter(e=>e.src==='student'),  sp: spill.filter(e=>e.src==='student') }
+  ];
+  let any = false;
+  for (const sec of sections){
+    if (!sec.evs.length && !sec.sp.length) continue;
+    any = true;
+    html += '<div class="tl-section">'+sec.name+' ('+(sec.evs.length+sec.sp.length)+')</div>';
+    for (const ev of sec.sp) html += tlRow(ev, true, nowPct);
+    for (const ev of sec.evs) html += tlRow(ev, false, nowPct);
+  }
+  html += any ? '' : '<div class="tl-empty">No shifts match on '+esc(longDay(curDay))+'.</div>';
+  html += '</div></div>';
+  wrap.innerHTML = html;
+}
+function tlRow(ev, isSpill, nowPct){
+  let leftPct, widthPct, spillL = false, spillR = false;
+  if (isSpill){
+    leftPct = 0;
+    widthPct = Math.min(100, (ev.startMin + ev.durMin - 1440) / 1440 * 100);
+    spillL = true;
+  } else {
+    leftPct = ev.startMin / 1440 * 100;
+    const endMin = ev.startMin + ev.durMin;
+    widthPct = (Math.min(endMin, 1440) - ev.startMin) / 1440 * 100;
+    spillR = endMin > 1440;
+  }
+  const sub = [ev.loc, ev.code, ev.meta].filter(Boolean).join(' · ');
+  return '<div class="tl-row">'
+    + '<div class="tl-name"><div class="n">'+esc(label(ev))+(isSpill?' <span style="color:var(--muted)">(cont.)</span>':'')+'</div>'
+    + (sub ? '<div class="s">'+esc(sub)+'</div>' : '') + '</div>'
+    + '<div class="tl-track">'
+    + (nowPct != null ? '<div class="nowline" style="left:'+nowPct+'%"></div>' : '')
+    + '<div class="bar '+cls(ev)+(spillR?' spillR':'')+(spillL?' spillL':'')+'" style="left:'+leftPct+'%;width:'+widthPct+'%" title="'+esc(ev.timeLabel+' '+label(ev))+'">'+esc(ev.timeLabel)+'</div>'
+    + '</div></div>';
+}
+function nowPercent(){
+  if (curDay !== todayKeyLocal()) return null;
+  const n = new Date();
+  return (n.getHours()*60 + n.getMinutes()) / 1440 * 100;
+}
+
+function evRow(ev){
+  return '<div class="ev '+cls(ev)+'">'
+    + '<span class="time">'+esc(ev.timeLabel)+'</span>'
+    + '<span class="badge '+cls(ev)+'">'+(ev.src==='student'?'Student':'Resident')+'</span>'
+    + '<span class="who">'+esc(label(ev))+'</span>'
+    + (ev.loc ? '<span class="meta">'+esc(ev.loc)+'</span>' : '')
+    + (ev.code ? '<span class="meta">'+esc(ev.code)+'</span>' : '')
+    + (ev.meta ? '<span class="meta">'+esc(ev.meta)+'</span>' : '')
+    + '</div>';
+}
+
+function renderPanel(byDay){
+  const p = document.getElementById('panel');
+  if (!selectedDay || view !== 'month'){ p.className = 'panel'; p.innerHTML=''; return; }
+  const evs = byDay[selectedDay] || [];
+  p.className = 'panel show';
+  let html = '<button class="close" id="pclose">✕ Close</button><h2>'+longDay(selectedDay)+'</h2>'
+    + '<span class="tolink" id="ptl">View on timeline →</span>';
+  html += evs.length ? evs.map(evRow).join('') : '<div class="empty">No shifts this day.</div>';
+  p.innerHTML = html;
+  document.getElementById('pclose').onclick = () => { selectedDay = null; render(); };
+  document.getElementById('ptl').onclick = () => { curDay = selectedDay; selectedDay = null; setView('timeline'); };
+}
+
+function buildPersonList(){
+  const names = [...new Set(events.map(e => e.who).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const sel = document.getElementById('person');
+  sel.innerHTML = '<option value="">All people</option>' + names.map(n => '<option>'+esc(n)+'</option>').join('');
+}
+
+function nav(dir){
+  if (view === 'timeline'){ curDay = shiftKey(curDay, dir); }
+  else { cur.setMonth(cur.getMonth()+dir); selectedDay = null; }
+  render();
+}
+function wire(){
+  document.getElementById('prev').onclick = () => nav(-1);
+  document.getElementById('next').onclick = () => nav(1);
+  document.getElementById('today').onclick = () => { cur = new Date(); cur.setDate(1); curDay = todayKeyLocal(); selectedDay=null; render(); };
+  document.getElementById('vMonth').onclick = () => setView('month');
+  document.getElementById('vTimeline').onclick = () => setView('timeline');
+  document.getElementById('vList').onclick = () => setView('list');
+  toggleWire('tStud', () => { showSt = !showSt; localStorage.setItem('pemcal.st', showSt?'1':'0'); });
+  toggleWire('tRes', () => { showRe = !showRe; localStorage.setItem('pemcal.re', showRe?'1':'0'); });
+  toggleWire('tOpen', () => { showOp = !showOp; localStorage.setItem('pemcal.op', showOp?'1':'0'); });
+  document.getElementById('person').onchange = e => { personFilter = e.target.value; render(); };
+  let deb;
+  document.getElementById('search').oninput = e => { clearTimeout(deb); deb = setTimeout(() => { searchQ = e.target.value.trim().toLowerCase(); render(); }, 150); };
+  syncToggles();
+}
+function toggleWire(id, fn){ document.getElementById(id).onclick = () => { fn(); syncToggles(); render(); }; }
+function syncToggles(){
+  document.getElementById('tStud').classList.toggle('off', !showSt);
+  document.getElementById('tRes').classList.toggle('off', !showRe);
+  document.getElementById('tOpen').classList.toggle('off', !showOp);
+  document.getElementById('vMonth').classList.toggle('active', view==='month');
+  document.getElementById('vTimeline').classList.toggle('active', view==='timeline');
+  document.getElementById('vList').classList.toggle('active', view==='list');
+}
+function setView(v){ view = v; localStorage.setItem('pemcal.view', v); syncToggles(); render(); }
+
+(async function init(){
+  wire();
+  try {
+    const [st, re, contacts, residents] = await Promise.all([
+      atFetch(STUDENT_BASE, STUDENT_SHIFTS, Object.values(SF)),
+      atFetch(RES_BASE, RES_SHIFTS, Object.values(RF)),
+      atFetch(STUDENT_BASE, STUDENT_CONTACTS, ['First Name']),
+      atFetch(RES_BASE, RES_PEOPLE, ['Name'])
+    ]);
+    const contactNames = {}, residentNames = {};
+    for (const r of contacts) contactNames[r.id] = (r.fields?.['First Name'] || '').trim() || 'Student';
+    for (const r of residents) residentNames[r.id] = (r.fields?.['Name'] || '').trim() || 'Resident';
+    events = buildEvents(st, re, contactNames, residentNames);
+    buildPersonList();
+    document.getElementById('status').textContent = st.length + ' student shifts · ' + re.length + ' resident shifts';
+    render();
+  } catch (e){
+    document.getElementById('calwrap').innerHTML = '<div class="err">Could not load schedules: ' + esc(e.message || e) + '</div>';
+    document.getElementById('status').textContent = 'Load failed';
+  }
+})();
+</script>
+</body>
+</html>
