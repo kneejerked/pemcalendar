@@ -135,7 +135,8 @@
       </div>
       <span class="toggle" id="tStud"><span class="dot st"></span>Students</span>
       <span class="toggle" id="tRes"><span class="dot re"></span>Residents</span>
-      <span class="toggle" id="tOpen"><span class="dot op"></span>Open shifts</span>
+      <span class="toggle" id="tOpSt"><span class="dot op"></span>Open student slots</span>
+      <span class="toggle" id="tOpRe"><span class="dot op"></span>Uncovered shifts</span>
       <select id="person"><option value="">All people</option></select>
       <input type="text" id="search" placeholder="Search…">
     </div>
@@ -186,7 +187,8 @@ let view = localStorage.getItem('pemcal.view') || 'month';
 if (!['month','timeline','list'].includes(view)) view = 'month';
 let showSt = localStorage.getItem('pemcal.st') !== '0';
 let showRe = localStorage.getItem('pemcal.re') !== '0';
-let showOp = localStorage.getItem('pemcal.op') !== '0';
+let showOpSt = localStorage.getItem('pemcal.opst') === '1';  // open student slots hidden by default
+let showOpRe = localStorage.getItem('pemcal.opre') === '1';  // uncovered resident shifts hidden by default
 let personFilter = '', searchQ = '', selectedDay = null;
 
 function todayKeyLocal(){
@@ -296,7 +298,7 @@ function buildEvents(stRecs, reRecs, contactNames, residentNames){
 }
 
 function visible(ev){
-  if (ev.open){ if (!showOp) return false; }
+  if (ev.open){ if (!(ev.src === 'student' ? showOpSt : showOpRe)) return false; }
   else if (ev.src === 'student'){ if (!showSt) return false; }
   else if (!showRe) return false;
   if (personFilter && ev.who !== personFilter) return false;
@@ -484,7 +486,8 @@ function wire(){
   document.getElementById('vList').onclick = () => setView('list');
   toggleWire('tStud', () => { showSt = !showSt; localStorage.setItem('pemcal.st', showSt?'1':'0'); });
   toggleWire('tRes', () => { showRe = !showRe; localStorage.setItem('pemcal.re', showRe?'1':'0'); });
-  toggleWire('tOpen', () => { showOp = !showOp; localStorage.setItem('pemcal.op', showOp?'1':'0'); });
+  toggleWire('tOpSt', () => { showOpSt = !showOpSt; localStorage.setItem('pemcal.opst', showOpSt?'1':'0'); });
+  toggleWire('tOpRe', () => { showOpRe = !showOpRe; localStorage.setItem('pemcal.opre', showOpRe?'1':'0'); });
   document.getElementById('person').onchange = e => { personFilter = e.target.value; render(); };
   let deb;
   document.getElementById('search').oninput = e => { clearTimeout(deb); deb = setTimeout(() => { searchQ = e.target.value.trim().toLowerCase(); render(); }, 150); };
@@ -494,7 +497,8 @@ function toggleWire(id, fn){ document.getElementById(id).onclick = () => { fn();
 function syncToggles(){
   document.getElementById('tStud').classList.toggle('off', !showSt);
   document.getElementById('tRes').classList.toggle('off', !showRe);
-  document.getElementById('tOpen').classList.toggle('off', !showOp);
+  document.getElementById('tOpSt').classList.toggle('off', !showOpSt);
+  document.getElementById('tOpRe').classList.toggle('off', !showOpRe);
   document.getElementById('vMonth').classList.toggle('active', view==='month');
   document.getElementById('vTimeline').classList.toggle('active', view==='timeline');
   document.getElementById('vList').classList.toggle('active', view==='list');
